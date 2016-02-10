@@ -10,15 +10,15 @@
 
 @interface JBWebViewController ()
 
-    // Private properties
-    @property (nonatomic, strong) NSURL *url;
-    @property (nonatomic) BOOL hasExtraButtons;
-    @property (nonatomic, strong) UIView *titleView;
-    @property (nonatomic, strong) UILabel *titleLabel;
-    @property (nonatomic, strong) UILabel *subtitleLabel;
-    @property (nonatomic, strong) NJKWebViewProgress *progressProxy;
-    @property (nonatomic, strong) NJKWebViewProgressView *progressView;
-    @property (nonatomic, strong) UIPopoverController *popoverShareController;
+// Private properties
+@property (nonatomic, strong) NSURL *url;
+@property (nonatomic) BOOL hasExtraButtons;
+@property (nonatomic, strong) UIView *titleView;
+@property (nonatomic, strong) UILabel *titleLabel;
+@property (nonatomic, strong) UILabel *subtitleLabel;
+@property (nonatomic, strong) NJKWebViewProgress *progressProxy;
+@property (nonatomic, strong) NJKWebViewProgressView *progressView;
+@property (nonatomic, strong) UIPopoverController *popoverShareController;
 
 @end
 
@@ -27,11 +27,11 @@
 #pragma mark - "Standards"
 
 - (id)initWithUrl:(NSURL *)url {
-	if (self = [self init]) {
-    	// Set url and init views
-    	_url = url;
-    	[self setup];
-	}
+    if (self = [self init]) {
+        // Set url and init views
+        _url = url;
+        [self setup];
+    }
     
     // Return self
     return self;
@@ -53,7 +53,7 @@
     [super viewWillAppear:animated];
     [_titleLabel setTextColor:self.navigationController.navigationBar.tintColor];
     [_subtitleLabel setTextColor:self.navigationController.navigationBar.tintColor];
-
+    
     // Add NJKWebViewProgressView to UINavigationBar
     _progressView = [[NJKWebViewProgressView alloc] initWithFrame:CGRectMake(0, self.navigationController.navigationBar.frame.size.height - 2, self.navigationController.navigationBar.frame.size.width, 2)];
     [self.navigationController.navigationBar addSubview:_progressView];
@@ -119,12 +119,25 @@
     
     [_titleView addSubview:_titleLabel];
     [_titleView addSubview:_subtitleLabel];
-
+    
     self.navigationItem.titleView = _titleView;
     
     // Inset right buttons
-    UIBarButtonItem *shareButton = [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"Share" inBundle:[NSBundle bundleForClass:[self class]] compatibleWithTraitCollection:nil] style:UIBarButtonItemStylePlain target:self action:@selector(share)];
-    UIBarButtonItem *dismissButton = [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"Dismiss" inBundle:[NSBundle bundleForClass:[self class]] compatibleWithTraitCollection:nil] style:UIBarButtonItemStylePlain target:self action:@selector(dismiss)];
+    UIImage *imgShare = nil;
+    UIImage *imgDismiss = nil;
+    
+    if ([[UIImage class] respondsToSelector:@selector(imageNamed:inBundle:compatibleWithTraitCollection:)])
+    {
+        imgShare = [UIImage imageNamed:@"Share" inBundle:[NSBundle bundleForClass:[self class]] compatibleWithTraitCollection:nil];
+        imgDismiss = [UIImage imageNamed:@"Dismiss" inBundle:[NSBundle bundleForClass:[self class]] compatibleWithTraitCollection:nil];
+    } else
+    {
+        imgShare = [UIImage imageNamed:@"Share"];
+        imgDismiss = [UIImage imageNamed:@"Dismiss"];
+    }
+    
+    UIBarButtonItem *shareButton = [[UIBarButtonItem alloc] initWithImage:imgShare style:UIBarButtonItemStylePlain target:self action:@selector(share)];
+    UIBarButtonItem *dismissButton = [[UIBarButtonItem alloc] initWithImage:imgDismiss style:UIBarButtonItemStylePlain target:self action:@selector(dismiss)];
     [self.navigationItem setRightBarButtonItems:[NSArray arrayWithObjects:dismissButton, shareButton, nil]];
     
     // Add a webview
@@ -228,19 +241,30 @@
     // Create share controller from our url
     UIActivityViewController *controller = [[UIActivityViewController alloc] initWithActivityItems:@[self.webView.request.URL] applicationActivities:@[safariActivity, chromeActivity]];
     
-    // If device is iPad
-    if(UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
-         // Dismiss popover if present
-         if(_popoverShareController) {
-             [_popoverShareController dismissPopoverAnimated:YES];
-         }
-         
-         // Insert share controller in popover and present it
-         _popoverShareController = [[UIPopoverController alloc] initWithContentViewController:controller];
-         [_popoverShareController presentPopoverFromBarButtonItem:self.navigationItem.rightBarButtonItems[1] permittedArrowDirections: UIPopoverArrowDirectionAny animated:YES];
+    if (&UIActivityTypeAirDrop != NULL) {
+        controller.excludedActivityTypes = @[UIActivityTypeAirDrop];
+    }
+    
+    if ([controller respondsToSelector:@selector(popoverPresentationController)])
+    {
+        controller.modalPresentationStyle = UIModalPresentationPopover;
+        
+        UIPopoverPresentationController *popOverController = [controller popoverPresentationController];
+        [popOverController setBarButtonItem:self.navigationItem.rightBarButtonItems[1]];
+        
+        [self presentViewController:controller animated:YES completion:nil];
+    } else if(UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+        // Dismiss popover if present
+        if(_popoverShareController) {
+            [_popoverShareController dismissPopoverAnimated:YES];
+        }
+        
+        // Insert share controller in popover and present it
+        _popoverShareController = [[UIPopoverController alloc] initWithContentViewController:controller];
+        [_popoverShareController presentPopoverFromBarButtonItem:self.navigationItem.rightBarButtonItems[1] permittedArrowDirections: UIPopoverArrowDirectionAny animated:YES];
     } else {
-         // Present share sheet (on iPhone)
-         [self presentViewController:controller animated:YES completion:nil];
+        // Present share sheet (on iPhone)
+        [self presentViewController:controller animated:YES completion:nil];
     }
 }
 
@@ -273,8 +297,21 @@
 
 - (void)addNavigationButtonsButtons {
     // Creating buttons
-    UIBarButtonItem *backButton = [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"Back" inBundle:[NSBundle bundleForClass:[self class]] compatibleWithTraitCollection:nil] style:UIBarButtonItemStylePlain target:self action:@selector(navigateBack)];
-    UIBarButtonItem *forwardButton = [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"Forward" inBundle:[NSBundle bundleForClass:[self class]] compatibleWithTraitCollection:nil] style:UIBarButtonItemStylePlain target:self action:@selector(navigateForward)];
+    UIImage *imgBack = nil;
+    UIImage *imgForward = nil;
+    
+    if ([[UIImage class] respondsToSelector:@selector(imageNamed:inBundle:compatibleWithTraitCollection:)])
+    {
+        imgBack = [UIImage imageNamed:@"Back" inBundle:[NSBundle bundleForClass:[self class]] compatibleWithTraitCollection:nil];
+        imgForward = [UIImage imageNamed:@"Forward" inBundle:[NSBundle bundleForClass:[self class]] compatibleWithTraitCollection:nil];
+    } else
+    {
+        imgBack = [UIImage imageNamed:@"Back"];
+        imgForward = [UIImage imageNamed:@"Forward"];
+    }
+    
+    UIBarButtonItem *backButton = [[UIBarButtonItem alloc] initWithImage:imgBack style:UIBarButtonItemStylePlain target:self action:@selector(navigateBack)];
+    UIBarButtonItem *forwardButton = [[UIBarButtonItem alloc] initWithImage:imgForward style:UIBarButtonItemStylePlain target:self action:@selector(navigateForward)];
     
     // Adding buttons to NavigationBar
     [self.navigationItem setLeftBarButtonItems:[NSArray arrayWithObjects:backButton, forwardButton, nil]];
